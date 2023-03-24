@@ -29,6 +29,7 @@ namespace DimensionalityReduction
     public Transform previewPosition;
     public TextMesh previewText;
     public Renderer previewImage;
+    public float previewScale = 0.2f;
 
     private List<(string id, Vector3 position)> _points;
     private string _lastSelected = "";
@@ -119,7 +120,8 @@ namespace DimensionalityReduction
     /// <param name="id">ID of the image to be downloaded for checking relevance</param>
     /// <param name="itemPosition">Position of the item in local space</param>
     /// <param name="onSuccess">Function to call when successfully downloaded</param>
-    private static IEnumerator DownloadTexture(string url, string id, Vector3 itemPosition, Action<Texture2D, string, Vector3> onSuccess)
+    private static IEnumerator DownloadTexture(string url, string id, Vector3 itemPosition,
+      Action<Texture2D, string, Vector3> onSuccess)
     {
       using var www = UnityWebRequestTexture.GetTexture(url);
       yield return www.SendWebRequest();
@@ -142,10 +144,15 @@ namespace DimensionalityReduction
       // Adjust aspect ratio
       float factor = Mathf.Max(loadedTexture.width, loadedTexture.height);
       var scale = new Vector3(loadedTexture.width / factor, loadedTexture.height / factor, 1);
-      var transform1 = previewImage.transform;
-      transform1.localScale = scale * 0.1f;
+      var t = previewImage.transform;
+      t.localScale = scale * previewScale;
       // Set position
-      transform1.position = transform.TransformPoint(itemPosition) + Vector3.up * 0.05f;
+      t.position = transform.TransformPoint(itemPosition) + Vector3.up * (t.localScale.y / 2);
+      // Rotate towards camera
+      if (Camera.main == null) return;
+      var forwardVector = t.position - Camera.main.transform.position;
+      forwardVector.y = 0;
+      t.rotation = Quaternion.LookRotation(forwardVector);
     }
   }
 }
