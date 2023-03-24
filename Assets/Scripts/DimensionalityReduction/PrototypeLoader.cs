@@ -60,7 +60,8 @@ namespace DimensionalityReduction
     {
       var position = transform.InverseTransformPoint(previewPosition.position);
 
-      var (id, sqrDistance) = _points.Select(item => (item.id, (item.position - position).sqrMagnitude))
+      var (id, sqrDistance, itemPosition) = _points
+        .Select(item => (item.id, (item.position - position).sqrMagnitude, item.position))
         .Aggregate((a, b) => a.sqrMagnitude > b.sqrMagnitude ? b : a);
 
       previewText.text = sqrDistance.ToString();
@@ -68,7 +69,7 @@ namespace DimensionalityReduction
       if (id == _lastSelected)
         return;
 
-      StartCoroutine(DownloadTexture($"http://10.34.58.72:8080/thumbnails/i_{id[..^2]}/i_{id}.jpg", id,
+      StartCoroutine(DownloadTexture($"http://10.34.58.72:8080/thumbnails/i_{id[..^2]}/i_{id}.jpg", id, itemPosition,
         OnDownloadSuccess));
 
       _lastSelected = id;
@@ -100,14 +101,25 @@ namespace DimensionalityReduction
       var zMin = z.Min();
       var zMax = z.Max();
 
+      // Length of the largest size of the bounding box
       var normalizer = Mathf.Max(xMax - xMin, yMax - yMin, zMax - zMin);
 
+      // Center of the bounding box
       var center = new Vector3(xMin + xMax, yMin + yMax, zMin + zMax) / 2;
 
       return points.Select(point => (point.id, (point.position - center) / normalizer)).ToList();
     }
 
-    private static IEnumerator DownloadTexture(string url, string id, Action<Texture2D, string> onSuccess)
+    /// <summary>
+    /// Downloads the image from the given URL and transforms it into a texture.
+    /// 
+    /// Checks if this texture is still current using the provided ID.
+    /// </summary>
+    /// <param name="url">URL of the image to use as texture</param>
+    /// <param name="id">ID of the image to be downloaded for checking relevance</param>
+    /// <param name="itemPosition">Position of the item in local space</param>
+    /// <param name="onSuccess">Function to call when successfully downloaded</param>
+    private static IEnumerator DownloadTexture(string url, string id, Vector3 itemPosition, Action<Texture2D, string, Vector3> onSuccess)
     {
       using var www = UnityWebRequestTexture.GetTexture(url);
       yield return www.SendWebRequest();
@@ -118,17 +130,22 @@ namespace DimensionalityReduction
       }
       else
       {
-        var loadedTexture = ((DownloadHandlerTexture)www.downloadHandler).texture;
-        onSuccess(loadedTexture, id);
+        var loadedTexture = ((DownloadHandlerTexture) www.downloadHandler).texture;
+        onSuccess(loadedTexture, id, itemPosition);
       }
     }
 
-    private void OnDownloadSuccess(Texture2D loadedTexture, string id)
+    private void OnDownloadSuccess(Texture2D loadedTexture, string id, Vector3 itemPosition)
     {
+      // Set texture
       previewImage.material.mainTexture = loadedTexture;
+      // Adjust aspect ratio
       float factor = Mathf.Max(loadedTexture.width, loadedTexture.height);
       var scale = new Vector3(loadedTexture.width / factor, loadedTexture.height / factor, 1);
-      previewImage.transform.localScale = scale;
+      var transform1 = previewImage.transform;
+      transform1.localScale = scale * 0.1f;
+      // Set position
+      transform1.position = transform.TransformPoint(itemPosition) + Vector3.up * 0.05f;
     }
   }
 }
