@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -36,7 +35,7 @@ namespace DimensionalityReduction
 
     private void Start()
     {
-      var items = LoadFeatures("Assets/features.json");
+      var items = LoadFeatures("features");
       items = NormalizeToBoundingBox(items);
 
       var mainConfig = system.main;
@@ -72,13 +71,16 @@ namespace DimensionalityReduction
 
       StartCoroutine(DownloadTexture($"http://10.34.58.72:8080/thumbnails/i_{id[..^2]}/i_{id}.jpg", id, itemPosition,
         OnDownloadSuccess));
+      // StartCoroutine(DownloadTexture(
+      //   $"http://sipi.participatory-archives.ch/SGV_10/{id[..^2]}.jp2/full/256,/0/default.jpg", id, itemPosition,
+      //   OnDownloadSuccess));
 
       _lastSelected = id;
     }
 
     private static List<(string id, Vector3 position)> LoadFeatures(string filePath)
     {
-      var data = File.ReadAllText(filePath);
+      var data = Resources.Load<TextAsset>(filePath).text;
 
       var featureFile = JsonUtility.FromJson<FeatureFile>(data);
 
@@ -132,7 +134,7 @@ namespace DimensionalityReduction
       }
       else
       {
-        var loadedTexture = ((DownloadHandlerTexture) www.downloadHandler).texture;
+        var loadedTexture = ((DownloadHandlerTexture)www.downloadHandler).texture;
         onSuccess(loadedTexture, id, itemPosition);
       }
     }
