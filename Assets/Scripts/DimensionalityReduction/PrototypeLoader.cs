@@ -30,6 +30,8 @@ namespace DimensionalityReduction
     public TextMesh previewText;
     public Renderer previewImage;
     public float previewScale = 0.2f;
+    [Tooltip("Maximum distance (squared) to point such that thumbnail is still displayed")]
+    public float maximumDistanceSquared = 0.01f;
 
     private List<(string id, Vector3 position)> _points;
     private string _lastSelected = "";
@@ -66,6 +68,8 @@ namespace DimensionalityReduction
         .Aggregate((a, b) => a.sqrMagnitude > b.sqrMagnitude ? b : a);
 
       previewText.text = sqrDistance.ToString(CultureInfo.InvariantCulture);
+
+      previewImage.enabled = sqrDistance < maximumDistanceSquared;
       
       UpdatePreviewPosRot(itemPosition);
 
