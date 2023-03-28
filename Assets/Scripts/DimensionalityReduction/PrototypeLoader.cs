@@ -30,14 +30,20 @@ namespace DimensionalityReduction
     public TextMesh previewText;
     public Renderer previewImage;
     public float previewScale = 0.2f;
+
     [Tooltip("Maximum distance (squared) to point such that thumbnail is still displayed")]
     public float maximumDistanceSquared = 0.01f;
 
     private List<(string id, Vector3 position)> _points;
     private string _lastSelected = "";
 
+    // Interaction variables
+    private Dictionary<Transform, Vector3> _activeInteractors = new();
+    private Camera _camera;
+
     private void Start()
     {
+      _camera = Camera.main;
       var items = LoadFeatures("features");
       items = NormalizeToBoundingBox(items);
 
@@ -59,7 +65,54 @@ namespace DimensionalityReduction
       _points = items;
     }
 
+    private void Update()
+    {
+      UpdateInteraction();
+    }
+
     private void FixedUpdate()
+    {
+      UpdatePreview();
+    }
+
+    public void OnInteraction(Transform interactor, bool start)
+    {
+      if (start)
+      {
+        _activeInteractors.Add(interactor, interactor.position);
+      }
+      else
+      {
+        _activeInteractors.Remove(interactor);
+      }
+    }
+
+    private void UpdateInteraction()
+    {
+      if (_activeInteractors.Count != 2) return;
+
+      var positions = _activeInteractors.Keys.Select(key => (_activeInteractors[key], key.position)).ToArray();
+
+      var (old0, new0) = positions.First();
+      var (old1, new1) = positions.Last();
+
+      var scalingFactor = (new0 - new1).magnitude / (old0 - old1).magnitude;
+
+      transform.localScale *= scalingFactor;
+
+      var keys = _activeInteractors.Keys.ToArray();
+      foreach (var key in keys)
+      {
+        _activeInteractors[key] = key.position;
+      }
+    }
+
+    /// <summary>
+    /// Determine which point is closest to the preview position and start the necessary coroutine to download the
+    /// appropriate texture.
+    /// Also updates preview location and rotation.
+    /// </summary>
+    private void UpdatePreview()
     {
       var position = transform.InverseTransformPoint(previewPosition.position);
 
@@ -70,7 +123,7 @@ namespace DimensionalityReduction
       previewText.text = sqrDistance.ToString(CultureInfo.InvariantCulture);
 
       previewImage.enabled = sqrDistance < maximumDistanceSquared;
-      
+
       UpdatePreviewPosRot(itemPosition);
 
       if (id == _lastSelected)
@@ -164,8 +217,7 @@ namespace DimensionalityReduction
       // Set position
       t.position = transform.TransformPoint(itemPosition) + Vector3.up * (t.localScale.y / 2);
       // Rotate towards camera
-      if (Camera.main == null) return;
-      var forwardVector = t.position - Camera.main.transform.position;
+      var forwardVector = t.position - _camera.transform.position;
       forwardVector.y = 0;
       t.rotation = Quaternion.LookRotation(forwardVector);
     }

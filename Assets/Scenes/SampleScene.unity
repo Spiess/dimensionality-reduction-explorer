@@ -6157,6 +6157,7 @@ MonoBehaviour:
   previewText: {fileID: 113677624}
   previewImage: {fileID: 1004331219}
   previewScale: 0.2
+  maximumDistanceSquared: 0.01
 --- !u!65 &1134478972
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -6185,7 +6186,19 @@ MonoBehaviour:
   disablesPointer: 1
   onInteraction:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1134478971}
+        m_TargetAssemblyTypeName: DimensionalityReduction.PrototypeLoader, Assembly-CSharp
+        m_MethodName: OnInteraction
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
   onGrab:
     m_PersistentCalls:
       m_Calls: []
