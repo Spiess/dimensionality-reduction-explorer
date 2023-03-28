@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -64,7 +65,9 @@ namespace DimensionalityReduction
         .Select(item => (item.id, (item.position - position).sqrMagnitude, item.position))
         .Aggregate((a, b) => a.sqrMagnitude > b.sqrMagnitude ? b : a);
 
-      previewText.text = sqrDistance.ToString();
+      previewText.text = sqrDistance.ToString(CultureInfo.InvariantCulture);
+      
+      UpdatePreviewPosRot(itemPosition);
 
       if (id == _lastSelected)
         return;
@@ -134,7 +137,7 @@ namespace DimensionalityReduction
       }
       else
       {
-        var loadedTexture = ((DownloadHandlerTexture)www.downloadHandler).texture;
+        var loadedTexture = ((DownloadHandlerTexture) www.downloadHandler).texture;
         onSuccess(loadedTexture, id, itemPosition);
       }
     }
@@ -148,6 +151,12 @@ namespace DimensionalityReduction
       var scale = new Vector3(loadedTexture.width / factor, loadedTexture.height / factor, 1);
       var t = previewImage.transform;
       t.localScale = scale * previewScale;
+      UpdatePreviewPosRot(itemPosition);
+    }
+
+    private void UpdatePreviewPosRot(Vector3 itemPosition)
+    {
+      var t = previewImage.transform;
       // Set position
       t.position = transform.TransformPoint(itemPosition) + Vector3.up * (t.localScale.y / 2);
       // Rotate towards camera
