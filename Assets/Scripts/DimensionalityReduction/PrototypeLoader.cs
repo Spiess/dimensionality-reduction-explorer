@@ -131,6 +131,7 @@ namespace DimensionalityReduction
           {
             system.Emit(emitParams, 1);
           }
+
           break;
         case Coloration.Coordinates:
           foreach (var emitParams in _points.Select(item => new ParticleSystem.EmitParams
@@ -144,6 +145,7 @@ namespace DimensionalityReduction
           {
             system.Emit(emitParams, 1);
           }
+
           break;
         default:
           throw new ArgumentOutOfRangeException(nameof(coloration), coloration, null);
@@ -159,9 +161,13 @@ namespace DimensionalityReduction
       var (old0, new0) = positions.First();
       var (old1, new1) = positions.Last();
 
+      var t = transform;
       var scalingFactor = (new0 - new1).magnitude / (old0 - old1).magnitude;
+      // Perform scaling at the center point of the gesture
+      var scalingPoint = (old0 + old1) / 2 - t.position;
 
-      transform.localScale *= scalingFactor;
+      t.localScale *= scalingFactor;
+      t.position += scalingPoint - scalingPoint * scalingFactor;
 
       var keys = _activeInteractors.Keys.ToArray();
       foreach (var key in keys)
