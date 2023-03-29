@@ -23,6 +23,12 @@ namespace DimensionalityReduction
     public FeatureEntry[] values;
   }
 
+  public enum Server
+  {
+    Maas,
+    Sipi
+  }
+
   public class PrototypeLoader : MonoBehaviour
   {
     public ParticleSystem system;
@@ -40,6 +46,9 @@ namespace DimensionalityReduction
     // Interaction variables
     private Dictionary<Transform, Vector3> _activeInteractors = new();
     private Camera _camera;
+
+    // Config
+    private Server _dataServer = Server.Maas;
 
     private void Start()
     {
@@ -87,6 +96,16 @@ namespace DimensionalityReduction
       }
     }
 
+    public void SetMaasServer()
+    {
+      _dataServer = Server.Maas;
+    }
+
+    public void SetSipiServer()
+    {
+      _dataServer = Server.Sipi;
+    }
+
     private void UpdateInteraction()
     {
       if (_activeInteractors.Count != 2) return;
@@ -129,13 +148,21 @@ namespace DimensionalityReduction
       if (id == _lastSelected)
         return;
 
-      StartCoroutine(DownloadTexture($"http://10.34.58.72:8080/thumbnails/i_{id[..^2]}/i_{id}.jpg", id, itemPosition,
-        OnDownloadSuccess));
-      // StartCoroutine(DownloadTexture(
-      //   $"http://sipi.participatory-archives.ch/SGV_10/{id[..^2]}.jp2/full/256,/0/default.jpg", id, itemPosition,
-      //   OnDownloadSuccess));
+      var thumbnailURL = GetThumbnailURL(id);
+
+      StartCoroutine(DownloadTexture(thumbnailURL, id, itemPosition, OnDownloadSuccess));
 
       _lastSelected = id;
+    }
+
+    private string GetThumbnailURL(string id)
+    {
+      return _dataServer switch
+      {
+        Server.Maas => $"http://10.34.58.72:8080/thumbnails/i_{id[..^2]}/i_{id}.jpg",
+        Server.Sipi => $"https://sipi.participatory-archives.ch/SGV_10/{id[..^2]}.jp2/full/256,/0/default.jpg",
+        _ => throw new ArgumentOutOfRangeException()
+      };
     }
 
     private static List<(string id, Vector3 position)> LoadFeatures(string filePath)
