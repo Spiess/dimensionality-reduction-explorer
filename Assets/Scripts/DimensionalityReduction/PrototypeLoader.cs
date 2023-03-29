@@ -29,6 +29,12 @@ namespace DimensionalityReduction
     Sipi
   }
 
+  public enum Coloration
+  {
+    White,
+    Coordinates
+  }
+
   public class PrototypeLoader : MonoBehaviour
   {
     public ParticleSystem system;
@@ -36,6 +42,7 @@ namespace DimensionalityReduction
     public TextMesh previewText;
     public Renderer previewImage;
     public float previewScale = 0.2f;
+    public Coloration startColor;
 
     [Tooltip("Maximum distance (squared) to point such that thumbnail is still displayed")]
     public float maximumDistanceSquared = 0.01f;
@@ -59,19 +66,9 @@ namespace DimensionalityReduction
       var mainConfig = system.main;
       mainConfig.maxParticles = items.Count;
 
-      foreach (var emitParams in items.Select(item => new ParticleSystem.EmitParams
-               {
-                 position = item.position,
-                 velocity = Vector3.zero,
-                 startLifetime = float.PositiveInfinity,
-                 startSize = .01f,
-                 startColor = Color.white
-               }))
-      {
-        system.Emit(emitParams, 1);
-      }
-
       _points = items;
+
+      EmitParticles(startColor);
     }
 
     private void Update()
@@ -104,6 +101,53 @@ namespace DimensionalityReduction
     public void SetSipiServer()
     {
       _dataServer = Server.Sipi;
+    }
+
+    public void SetColorWhite()
+    {
+      EmitParticles(Coloration.White);
+    }
+
+    public void SetColorCoordinates()
+    {
+      EmitParticles(Coloration.Coordinates);
+    }
+
+    private void EmitParticles(Coloration coloration)
+    {
+      system.Clear();
+
+      switch (coloration)
+      {
+        case Coloration.White:
+          foreach (var emitParams in _points.Select(item => new ParticleSystem.EmitParams
+                   {
+                     position = item.position,
+                     velocity = Vector3.zero,
+                     startLifetime = float.PositiveInfinity,
+                     startSize = .01f,
+                     startColor = Color.white
+                   }))
+          {
+            system.Emit(emitParams, 1);
+          }
+          break;
+        case Coloration.Coordinates:
+          foreach (var emitParams in _points.Select(item => new ParticleSystem.EmitParams
+                   {
+                     position = item.position,
+                     velocity = Vector3.zero,
+                     startLifetime = float.PositiveInfinity,
+                     startSize = .01f,
+                     startColor = new Color(item.position.x + 0.5f, item.position.y + 0.5f, item.position.z + 0.5f)
+                   }))
+          {
+            system.Emit(emitParams, 1);
+          }
+          break;
+        default:
+          throw new ArgumentOutOfRangeException(nameof(coloration), coloration, null);
+      }
     }
 
     private void UpdateInteraction()
