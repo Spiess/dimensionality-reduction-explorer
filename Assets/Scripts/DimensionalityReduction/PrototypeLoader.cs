@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -22,6 +23,18 @@ namespace DimensionalityReduction
     public FeatureEntry[] values;
   }
 
+  public enum Server
+  {
+    Maas,
+    Sipi
+  }
+
+  public enum Coloration
+  {
+    White,
+    Coordinates
+  }
+
   public class PrototypeLoader : MonoBehaviour
   {
     public ParticleSystem system;
@@ -29,34 +42,146 @@ namespace DimensionalityReduction
     public TextMesh previewText;
     public Renderer previewImage;
     public float previewScale = 0.2f;
+    public Coloration startColor;
+
+    [Tooltip("Maximum distance (squared) to point such that thumbnail is still displayed")]
+    public float maximumDistanceSquared = 0.01f;
 
     private List<(string id, Vector3 position)> _points;
     private string _lastSelected = "";
 
+    // Interaction variables
+    private Dictionary<Transform, Vector3> _activeInteractors = new();
+    private Camera _camera;
+
+    // Config
+    private Server _dataServer = Server.Maas;
+
     private void Start()
     {
+      _camera = Camera.main;
       var items = LoadFeatures("features");
       items = NormalizeToBoundingBox(items);
 
       var mainConfig = system.main;
       mainConfig.maxParticles = items.Count;
 
-      foreach (var emitParams in items.Select(item => new ParticleSystem.EmitParams
-               {
-                 position = item.position,
-                 velocity = Vector3.zero,
-                 startLifetime = float.PositiveInfinity,
-                 startSize = .01f,
-                 startColor = Color.white
-               }))
-      {
-        system.Emit(emitParams, 1);
-      }
-
       _points = items;
+
+      EmitParticles(startColor);
+    }
+
+    private void Update()
+    {
+      UpdateInteraction();
     }
 
     private void FixedUpdate()
+    {
+      UpdatePreview();
+    }
+
+    public void OnInteraction(Transform interactor, bool start)
+    {
+      if (start)
+      {
+        _activeInteractors.Add(interactor, interactor.position);
+      }
+      else
+      {
+        _activeInteractors.Remove(interactor);
+      }
+    }
+
+    public void SetMaasServer()
+    {
+      _dataServer = Server.Maas;
+    }
+
+    public void SetSipiServer()
+    {
+      _dataServer = Server.Sipi;
+    }
+
+    public void SetColorWhite()
+    {
+      EmitParticles(Coloration.White);
+    }
+
+    public void SetColorCoordinates()
+    {
+      EmitParticles(Coloration.Coordinates);
+    }
+
+    private void EmitParticles(Coloration coloration)
+    {
+      system.Clear();
+
+      switch (coloration)
+      {
+        case Coloration.White:
+          foreach (var emitParams in _points.Select(item => new ParticleSystem.EmitParams
+                   {
+                     position = item.position,
+                     velocity = Vector3.zero,
+                     startLifetime = float.PositiveInfinity,
+                     startSize = .01f,
+                     startColor = Color.white
+                   }))
+          {
+            system.Emit(emitParams, 1);
+          }
+
+          break;
+        case Coloration.Coordinates:
+          foreach (var emitParams in _points.Select(item => new ParticleSystem.EmitParams
+                   {
+                     position = item.position,
+                     velocity = Vector3.zero,
+                     startLifetime = float.PositiveInfinity,
+                     startSize = .01f,
+                     startColor = new Color(item.position.x + 0.5f, item.position.y + 0.5f, item.position.z + 0.5f)
+                   }))
+          {
+            system.Emit(emitParams, 1);
+          }
+
+          break;
+        default:
+          throw new ArgumentOutOfRangeException(nameof(coloration), coloration, null);
+      }
+    }
+
+    private void UpdateInteraction()
+    {
+      if (_activeInteractors.Count != 2) return;
+
+      var positions = _activeInteractors.Keys.Select(key => (_activeInteractors[key], key.position)).ToArray();
+
+      var (old0, new0) = positions.First();
+      var (old1, new1) = positions.Last();
+
+      var t = transform;
+      var scalingFactor = (new0 - new1).magnitude / (old0 - old1).magnitude;
+      // Perform scaling at the center point of the gesture
+      var scalingPoint = (old0 + old1) / 2 - t.position;
+
+      t.localScale *= scalingFactor;
+      t.position += scalingPoint - scalingPoint * scalingFactor;
+
+      var keys = _activeInteractors.Keys.ToArray();
+      foreach (var key in keys)
+      {
+        _activeInteractors[key] = key.position;
+      }
+    }
+
+    /// <summary>
+    /// Determine which point is closest to the preview position and start the necessary coroutine to download the
+    /// appropriate texture.
+    /// Also updates preview location and rotation.
+    /// </summary>
+    private void UpdatePreview()
     {
       var position = transform.InverseTransformPoint(previewPosition.position);
 
@@ -64,18 +189,30 @@ namespace DimensionalityReduction
         .Select(item => (item.id, (item.position - position).sqrMagnitude, item.position))
         .Aggregate((a, b) => a.sqrMagnitude > b.sqrMagnitude ? b : a);
 
-      previewText.text = sqrDistance.ToString();
+      previewText.text = sqrDistance.ToString(CultureInfo.InvariantCulture);
+
+      previewImage.enabled = sqrDistance < maximumDistanceSquared;
+
+      UpdatePreviewPosRot(itemPosition);
 
       if (id == _lastSelected)
         return;
 
-      StartCoroutine(DownloadTexture($"http://10.34.58.72:8080/thumbnails/i_{id[..^2]}/i_{id}.jpg", id, itemPosition,
-        OnDownloadSuccess));
-      // StartCoroutine(DownloadTexture(
-      //   $"http://sipi.participatory-archives.ch/SGV_10/{id[..^2]}.jp2/full/256,/0/default.jpg", id, itemPosition,
-      //   OnDownloadSuccess));
+      var thumbnailURL = GetThumbnailURL(id);
+
+      StartCoroutine(DownloadTexture(thumbnailURL, id, itemPosition, OnDownloadSuccess));
 
       _lastSelected = id;
+    }
+
+    private string GetThumbnailURL(string id)
+    {
+      return _dataServer switch
+      {
+        Server.Maas => $"http://10.34.58.72:8080/thumbnails/i_{id[..^2]}/i_{id}.jpg",
+        Server.Sipi => $"https://sipi.participatory-archives.ch/SGV_10/{id[..^2]}.jp2/full/256,/0/default.jpg",
+        _ => throw new ArgumentOutOfRangeException()
+      };
     }
 
     private static List<(string id, Vector3 position)> LoadFeatures(string filePath)
@@ -134,7 +271,7 @@ namespace DimensionalityReduction
       }
       else
       {
-        var loadedTexture = ((DownloadHandlerTexture)www.downloadHandler).texture;
+        var loadedTexture = ((DownloadHandlerTexture) www.downloadHandler).texture;
         onSuccess(loadedTexture, id, itemPosition);
       }
     }
@@ -148,11 +285,16 @@ namespace DimensionalityReduction
       var scale = new Vector3(loadedTexture.width / factor, loadedTexture.height / factor, 1);
       var t = previewImage.transform;
       t.localScale = scale * previewScale;
+      UpdatePreviewPosRot(itemPosition);
+    }
+
+    private void UpdatePreviewPosRot(Vector3 itemPosition)
+    {
+      var t = previewImage.transform;
       // Set position
       t.position = transform.TransformPoint(itemPosition) + Vector3.up * (t.localScale.y / 2);
       // Rotate towards camera
-      if (Camera.main == null) return;
-      var forwardVector = t.position - Camera.main.transform.position;
+      var forwardVector = t.position - _camera.transform.position;
       forwardVector.y = 0;
       t.rotation = Quaternion.LookRotation(forwardVector);
     }
