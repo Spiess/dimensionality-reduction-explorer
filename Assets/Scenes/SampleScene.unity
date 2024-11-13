@@ -6300,6 +6300,23 @@ MonoBehaviour:
   minimumPreviewDistance: 0.18
   randomizedPreviewScale: 0.1
   hideRandomizedPreviewDistanceSquared: 0.02
+  toggleRandomizedPreviewsAction:
+    m_Name: Toggle Randomized Previews
+    m_Type: 0
+    m_ExpectedControlType: 
+    m_Id: eb545a12-4f80-4862-9c7f-b640878cf0b4
+    m_Processors: 
+    m_Interactions: 
+    m_SingletonActionBindings:
+    - m_Name: 
+      m_Id: 3e18ba1d-ea68-483b-8f65-27912f0e50a1
+      m_Path: <XRController>/primaryButton
+      m_Interactions: 
+      m_Processors: 
+      m_Groups: 
+      m_Action: Toggle Randomized Previews
+      m_Flags: 0
+    m_Flags: 0
 --- !u!65 &1134478972
 BoxCollider:
   m_ObjectHideFlags: 0

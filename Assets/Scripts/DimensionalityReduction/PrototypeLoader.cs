@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using SimpleInteractionSystem;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.Networking;
 
 namespace DimensionalityReduction
@@ -53,7 +54,10 @@ namespace DimensionalityReduction
     public float randomizedPreviewScale = .1f;
     public float hideRandomizedPreviewDistanceSquared = 0.02f;
 
+    public InputAction toggleRandomizedPreviewsAction;
+
     private Dictionary<Vector3, Renderer> _randomizedPreviews = new();
+    private bool _showRandomizedPreviews = true;
 
     private List<(string id, Vector3 position)> _points;
 
@@ -83,6 +87,18 @@ namespace DimensionalityReduction
 
       if (enableRandomizedPreviews)
         GeneratePreviews();
+
+      toggleRandomizedPreviewsAction.performed += _ => ToggleRandomizedPreviews();
+      toggleRandomizedPreviewsAction.Enable();
+    }
+
+    private void ToggleRandomizedPreviews()
+    {
+      _showRandomizedPreviews = !_showRandomizedPreviews;
+      foreach (var (_, preview) in _randomizedPreviews)
+      {
+        preview.enabled = _showRandomizedPreviews;
+      }
     }
 
     private void GeneratePreviews()
@@ -146,7 +162,7 @@ namespace DimensionalityReduction
     {
       UpdatePreviews();
     }
-    
+
     private void OnTriggerEnter(Collider other)
     {
       if (!other.TryGetComponent<Interactor>(out var interactor)) return;
@@ -286,7 +302,8 @@ namespace DimensionalityReduction
         return;
 
       // Enable all randomized previews
-      _randomizedPreviews.Values.ToList().ForEach(preview => preview.enabled = true);
+      if (_showRandomizedPreviews)
+        _randomizedPreviews.Values.ToList().ForEach(preview => preview.enabled = true);
 
       // Update interactor previews
       foreach (var interactor in _enteredLastId.Keys.ToList())
@@ -317,6 +334,8 @@ namespace DimensionalityReduction
           continue;
 
         var thumbnailURL = GetThumbnailURL(id);
+
+        preview.transform.localScale = Vector3.one * 0.001f;
 
         StartCoroutine(DownloadTexture(thumbnailURL, id, itemPosition, interactor, OnDownloadSuccess));
 
