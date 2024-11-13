@@ -55,7 +55,7 @@ namespace DimensionalityReduction
     private Camera _camera;
 
     // Config
-    private Server _dataServer = Server.Maas;
+    private Server _dataServer = Server.Sipi;
 
     private void Start()
     {
@@ -210,7 +210,7 @@ namespace DimensionalityReduction
       return _dataServer switch
       {
         Server.Maas => $"http://10.34.58.72:8080/thumbnails/i_{id[..^2]}/i_{id}.jpg",
-        Server.Sipi => $"https://sipi.participatory-archives.ch/SGV_10/{id[..^2]}.jp2/full/256,/0/default.jpg",
+        Server.Sipi => $"http://sipi.participatory-archives.ch/SGV_10/{id[..^2]}.jp2/full/256,/0/default.jpg",
         _ => throw new ArgumentOutOfRangeException()
       };
     }
