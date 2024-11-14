@@ -27,6 +27,7 @@ namespace DimensionalityReduction
   public enum Server
   {
     Maas,
+    Local,
     Sipi
   }
 
@@ -34,6 +35,12 @@ namespace DimensionalityReduction
   {
     White,
     Coordinates
+  }
+
+  public enum DataCollection
+  {
+    SGV_10,
+    SGV_12
   }
 
   public class PrototypeLoader : MonoBehaviour
@@ -67,6 +74,7 @@ namespace DimensionalityReduction
 
     // Config
     private Server _dataServer = Server.Sipi;
+    private DataCollection _collection = DataCollection.SGV_10;
 
     // For tracking the interactors currently inside the bounding box and the last segment data they hovered.
     private readonly Dictionary<Interactor, string> _enteredLastId = new();
@@ -75,7 +83,22 @@ namespace DimensionalityReduction
     private void Start()
     {
       _camera = Camera.main;
-      var items = LoadFeatures("features");
+      
+      Initialize();
+
+      toggleRandomizedPreviewsAction.performed += _ => ToggleRandomizedPreviews();
+      toggleRandomizedPreviewsAction.Enable();
+    }
+
+    private void Initialize()
+    {
+      var featurePath = _collection switch
+      {
+        DataCollection.SGV_10 => "features_sgv_10",
+        DataCollection.SGV_12 => "features_sgv_12",
+        _ => throw new ArgumentOutOfRangeException()
+      };
+      var items = LoadFeatures(featurePath);
       items = NormalizeToBoundingBox(items);
 
       var mainConfig = system.main;
@@ -87,9 +110,6 @@ namespace DimensionalityReduction
 
       if (enableRandomizedPreviews)
         GeneratePreviews();
-
-      toggleRandomizedPreviewsAction.performed += _ => ToggleRandomizedPreviews();
-      toggleRandomizedPreviewsAction.Enable();
     }
 
     private void ToggleRandomizedPreviews()
@@ -221,6 +241,18 @@ namespace DimensionalityReduction
     {
       EmitParticles(Coloration.Coordinates);
     }
+    
+    public void SetCollectionSgv10()
+    {
+      _collection = DataCollection.SGV_10;
+      Initialize();
+    }
+    
+    public void SetCollectionSgv12()
+    {
+      _collection = DataCollection.SGV_12;
+      Initialize();
+    }
 
     private void EmitParticles(Coloration coloration)
     {
@@ -351,10 +383,18 @@ namespace DimensionalityReduction
 
     private string GetThumbnailURL(string id)
     {
+      var collectionString = _collection switch
+      {
+        DataCollection.SGV_10 => "SGV_10",
+        DataCollection.SGV_12 => "SGV_12",
+        _ => throw new ArgumentOutOfRangeException()
+      };
       return _dataServer switch
       {
         Server.Maas => $"http://10.34.58.72:8080/thumbnails/i_{id[..^2]}/i_{id}.jpg",
-        Server.Sipi => $"http://sipi.participatory-archives.ch/SGV_10/{id[..^2]}.jp2/full/256,/0/default.jpg",
+        Server.Local => $"http://dmi-21-pc-02.local:8080/{collectionString}/{id[..^2]}.jpg",
+        Server.Sipi =>
+          $"http://sipi.participatory-archives.ch/{collectionString}/{id[..^2]}.jp2/full/256,/0/default.jpg",
         _ => throw new ArgumentOutOfRangeException()
       };
     }
